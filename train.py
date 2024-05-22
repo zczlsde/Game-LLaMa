@@ -111,23 +111,28 @@ for epoch in range(100):
         # Reward calculation
         # Get the table first
         string = tokenizer.decode(response, skip_special_tokens=True)
-        start = string.index("|")  # find the first occurrence of '|' which starts the table
-        end = string.index("\n\n", start)  # find the end of the table by double newline
-        table_string = string[start:end].strip()
-        curent_table = create_sorted_table(table_string)
-        # html_text = markdown.markdown(table_string, extensions=['tables'])
-        # tables = pd.read_html(html_text)
-        # table = tables[0]
-        # # Sort the table
-        # df = table.reindex(sorted(table.columns), axis=1)
-        # df.set_index(df.columns[0], inplace=True)
-        # df_sorted = df.sort_index()
-        # df_sorted = df_sorted.applymap(lambda x: tuple(map(int, x.strip("()").split(","))))
-        
-        eq, n_eq, total_eq = compare_nash_equilibria(true_game, curent_table)
 
-        reward = (2*n_eq)/total_eq
-        rewards.append(torch.tensor(reward).to(model.device))
+        try:
+            start = string.index("|")  # find the first occurrence of '|' which starts the table
+            end = string.index("\n\n", start)  # find the end of the table by double newline
+            table_string = string[start:end].strip()
+            curent_table = create_sorted_table(table_string)
+            # html_text = markdown.markdown(table_string, extensions=['tables'])
+            # tables = pd.read_html(html_text)
+            # table = tables[0]
+            # # Sort the table
+            # df = table.reindex(sorted(table.columns), axis=1)
+            # df.set_index(df.columns[0], inplace=True)
+            # df_sorted = df.sort_index()
+            # df_sorted = df_sorted.applymap(lambda x: tuple(map(int, x.strip("()").split(","))))
+            
+            eq, n_eq, total_eq = compare_nash_equilibria(true_game, curent_table)
+
+            reward = (2*n_eq)/total_eq
+            rewards.append(torch.tensor(reward).to(model.device))
+        except:
+            rewards.append(torch.tensor(0.0).to(model.device))
+            continue
     
     stats = ppo_trainer.step(question_tensors, response_tensors, rewards)
     logs.update(stats)
