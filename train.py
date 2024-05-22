@@ -2,6 +2,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import create_reference_model, PPOConfig, PPOTrainer
 from iTrainingLogger import iSummaryWriter
 from peft import get_peft_model, LoraConfig
+from utils import compare_nash_equilibria, create_sorted_table, find_nash_equilibria, convert_equilibria_to_hashable, extract_payoff_tables
 import nashpy as nash
 import numpy as np
 import torch
@@ -76,33 +77,17 @@ terminators = [
     tokenizer.convert_tokens_to_ids("<|eot_id|>")
 ]
 
-true_game = np.array([[2, 0], [3, 1]],
-                     [[8, 8], [2, 2]])
+# true_game = np.array([[2, 0], [3, 1]],
+#                      [[8, 8], [2, 2]])
+true_game = """
+| Player 1 \\ Player 2 | l         | r          |
+|----------------------|-----------|------------|
+| T                    | (2, 2)    | (0, 1)     |
+| B                    | (3, 0)    | (1, 1)     |
+"""
 
-def find_nash_equilibria(payoff_table_1, payoff_table_2):
-    """
-    Find Nash equilibria for two games.
-    """
-    game_1 = nash.Game(payoff_table_1[0], payoff_table_1[1])
-    game_2 = nash.Game(payoff_table_2[0], payoff_table_2[1])
-    
-    equilibria_1 = list(game_1.support_enumeration())
-    equilibria_2 = list(game_2.support_enumeration())
-    
-    return equilibria_1, equilibria_2
+true_game_table = create_sorted_table(true_game)
 
-def compare_nash_equilibria(matrix_1, matrix_2):
-    """
-    Compare Nash equilibria of two payoff matrices.
-    """
-
-    # Find Nash equilibria
-    equilibria_1, equilibria_2 = find_nash_equilibria(matrix_1, matrix_2)
-    total_equilibria = len(equilibria_1) + len(equilibria_2)
-    # Find intersection of equilibria sets
-    common_equilibria = set(equilibria_1) & set(equilibria_2)
-
-    return common_equilibria, len(common_equilibria), total_equilibria
 
 # Train the model
 for epoch in range(100):
@@ -129,16 +114,17 @@ for epoch in range(100):
         start = string.index("|")  # find the first occurrence of '|' which starts the table
         end = string.index("\n\n", start)  # find the end of the table by double newline
         table_string = string[start:end].strip()
-        html_text = markdown.markdown(table_string, extensions=['tables'])
-        tables = pd.read_html(html_text)
-        table = tables[0]
-        # Sort the table
-        df = table.reindex(sorted(table.columns), axis=1)
-        df.set_index(df.columns[0], inplace=True)
-        df_sorted = df.sort_index()
-        df_sorted = df_sorted.applymap(lambda x: tuple(map(int, x.strip("()").split(","))))
+        curent_table = create_sorted_table(table_string)
+        # html_text = markdown.markdown(table_string, extensions=['tables'])
+        # tables = pd.read_html(html_text)
+        # table = tables[0]
+        # # Sort the table
+        # df = table.reindex(sorted(table.columns), axis=1)
+        # df.set_index(df.columns[0], inplace=True)
+        # df_sorted = df.sort_index()
+        # df_sorted = df_sorted.applymap(lambda x: tuple(map(int, x.strip("()").split(","))))
         
-        eq, n_eq, total_eq = compare_nash_equilibria(true_game, df_sorted.to_numpy())
+        eq, n_eq, total_eq = compare_nash_equilibria(true_game, curent_table)
 
         reward = (2*n_eq)/total_eq
         rewards.append(torch.tensor(reward).to(model.device))
